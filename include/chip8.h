@@ -2,8 +2,9 @@
 #define CHIP8_H
 
 #include "config.h"
-struct chip8 {
+struct chip8 
+{
   
-}
+};
 
 #endif

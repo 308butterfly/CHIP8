@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "SDL2/SDL.h"
+#include "chip8.h"
 
 #define TRUE 1
 #define FALSE 0
