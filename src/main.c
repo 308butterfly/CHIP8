@@ -18,6 +18,7 @@ int main(int argc, char** argv)
     CHIP8_HEIGHT * CHIP8_WINDOW_SCALE_UP_FACTOR,
     SDL_WINDOW_SHOWN
   );
+
   SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_TEXTUREACCESS_TARGET);
 
   while (TRUE)
