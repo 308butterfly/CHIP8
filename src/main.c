@@ -9,6 +9,11 @@
 
 int main(int argc, char** argv)
 {
+  struct chip8 chip8;
+  chip8_memory_set(&chip8.memory, 50, 'Z');
+  printf("%c\n", chip8_memory_get(&chip8.memory, 50));
+
+
   SDL_Init(SDL_INIT_EVERYTHING);
   SDL_Window* window = SDL_CreateWindow(
     EMULATOR_WINDOW_TITLE,
@@ -44,6 +49,7 @@ int main(int argc, char** argv)
     SDL_RenderFillRect(renderer, &r);
     SDL_RenderPresent(renderer);
   }
+  // gotos are usually bad but this case they are okay??
 out:
   SDL_DestroyWindow(window);
   return EXIT_SUCCESS;
