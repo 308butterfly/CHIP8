@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#include <windows.h>
 #include "SDL2/SDL.h"
 #include "chip8.h"
 #include "chip8keyboard.h"
@@ -27,11 +28,48 @@ const char keyboard_map[CHIP8_TOTAL_KEYS] = {
 
 int main(int argc, char** argv)
 {
+  if (argc < 2)
+  {
+    printf("Please provide file to load\n");
+    return -1;
+  }
+
+  const char* filename = argv[1];
+  printf("File to load is: %s\n", filename);
+
+  FILE* f = fopen(filename, "rb");
+
+  if (!f)
+  {
+    printf("ERROR: Failed to open file.\n");
+    fclose(f); // To close the file
+    return -1;
+  }
+
+  fseek(f, 0, SEEK_END); // go to end of the file
+  long size = ftell(f);
+  fseek(f, 0, SEEK_SET);
+
+  char buf[size]; // may have problems with this
+  int res = fread(buf, size, 1, f);
+  if (res != 1)
+  {
+    printf("Failed to read from file\n");
+    fclose(f);
+    return -1;
+  }
+
+  // For debugging with love
+  printf("%s\n", buf);
+
   struct chip8 chip8;
   chip8_init(&chip8);
+  chip8_load(&chip8, buf, size);
 
   // screen test
-  chip8_screen_set(&chip8.screen, 0, 0);
+
+  chip8_screen_draw_sprite(&chip8.screen, 62, 10, &chip8.memory.memory[0x14], 5);
+
 
   SDL_Init(SDL_INIT_EVERYTHING);
   SDL_Window* window = SDL_CreateWindow(
@@ -109,6 +147,25 @@ int main(int argc, char** argv)
     }
 
     SDL_RenderPresent(renderer);
+
+    // There is probably a better way to do this.
+    if (chip8.registers.delay_timer > 0)
+    {
+      Sleep(100); // why 100 why not?
+      chip8.registers.delay_timer -= 1;
+    }
+
+    if (chip8.registers.sound_timer > 0)
+    {
+      Beep(1000, 100 * chip8.registers.sound_timer);
+      chip8.registers.sound_timer = 0;
+    }
+
+    unsigned short opcode = chip8_memory_get_short(&chip8.memory, chip8.registers.PC);
+    chip8_exec(&chip8, opcode);
+    chip8.registers.PC += 2;
+    printf("%x\n", opcode);
+
   }
   // gotos are usually bad but this case they are okay??
 out:
