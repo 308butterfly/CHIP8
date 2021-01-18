@@ -30,7 +30,8 @@ int main(int argc, char** argv)
   struct chip8 chip8;
   chip8_init(&chip8);
 
-
+  // screen test
+  chip8_screen_set(&chip8.screen, 0, 0);
 
   SDL_Init(SDL_INIT_EVERYTHING);
   SDL_Window* window = SDL_CreateWindow(
@@ -88,12 +89,25 @@ int main(int argc, char** argv)
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
     SDL_RenderClear(renderer); // paint over entire screen
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0); // set to white
-    SDL_Rect r;
-    r.x = 0;
-    r.y = 0;
-    r.w = 40;
-    r.h = 40;
-    SDL_RenderFillRect(renderer, &r);
+
+    for (int x = 0; x < CHIP8_WIDTH; ++x)
+    {
+      for (int y = 0; y < CHIP8_HEIGHT; ++y)
+      {
+        if (chip8_screen_is_set(&chip8.screen, x, y))
+        {
+          SDL_Rect r;
+          r.x = x * CHIP8_WINDOW_SCALE_UP_FACTOR;
+          r.y = y * CHIP8_WINDOW_SCALE_UP_FACTOR;
+          r.w = CHIP8_WINDOW_SCALE_UP_FACTOR;
+          r.h = CHIP8_WINDOW_SCALE_UP_FACTOR;
+          SDL_RenderFillRect(renderer, &r);
+
+        }
+
+      }
+    }
+
     SDL_RenderPresent(renderer);
   }
   // gotos are usually bad but this case they are okay??
