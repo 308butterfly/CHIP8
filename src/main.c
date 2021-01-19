@@ -65,18 +65,8 @@ int main(int argc, char** argv)
   struct chip8 chip8;
   chip8_init(&chip8);
   chip8_load(&chip8, buf, size);
+  chip8_keyboard_set_map(&chip8.keyboard, keyboard_map);
 
-  // TESTING GOES HERE
-
-  chip8.registers.V[0] = 200;
-  chip8.registers.V[1] = 60;
-  chip8_exec(&chip8, 0x8014);
-
-  printf("%x\n", chip8.registers.V[0]);
-  printf("%x\n", chip8.registers.V[15]);
-
-
-  // TESTING END
   SDL_Init(SDL_INIT_EVERYTHING);
   SDL_Window* window = SDL_CreateWindow(
     EMULATOR_WINDOW_TITLE,
@@ -88,6 +78,16 @@ int main(int argc, char** argv)
   );
 
   SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_TEXTUREACCESS_TARGET);
+
+  // TESTING GOES HERE
+
+
+
+// printf("%x\n", chip8.registers.V[0]);
+// printf("%x\n", chip8.registers.V[15]);
+
+
+// TESTING END
 
   while (true)
   {
@@ -104,7 +104,7 @@ int main(int argc, char** argv)
       case SDL_KEYDOWN:
       {
         char key = event.key.keysym.sym;
-        int vkey = chip8_keyboard_map(keyboard_map, key);
+        int vkey = chip8_keyboard_map(&chip8.keyboard, key);
         if (vkey != -1)
         {
           chip8_keyboard_down(&chip8.keyboard, vkey);
@@ -115,7 +115,7 @@ int main(int argc, char** argv)
       case SDL_KEYUP:
       {
         char key = event.key.keysym.sym;
-        int vkey = chip8_keyboard_map(keyboard_map, key);
+        int vkey = chip8_keyboard_map(&chip8.keyboard, key);
         if (vkey != -1)
         {
           chip8_keyboard_up(&chip8.keyboard, vkey);
@@ -146,9 +146,7 @@ int main(int argc, char** argv)
           r.w = CHIP8_WINDOW_SCALE_UP_FACTOR;
           r.h = CHIP8_WINDOW_SCALE_UP_FACTOR;
           SDL_RenderFillRect(renderer, &r);
-
         }
-
       }
     }
 
@@ -157,13 +155,13 @@ int main(int argc, char** argv)
     // There is probably a better way to do this.
     if (chip8.registers.delay_timer > 0)
     {
-      Sleep(100); // why 100 why not?
+      Sleep(1); // why 100 why not?
       chip8.registers.delay_timer -= 1;
     }
 
     if (chip8.registers.sound_timer > 0)
     {
-      Beep(1000, 100 * chip8.registers.sound_timer);
+      Beep(5000, 50 * chip8.registers.sound_timer);
       chip8.registers.sound_timer = 0;
     }
 

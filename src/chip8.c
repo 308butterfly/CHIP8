@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
+#include "SDL2/SDL.h"
 
 const char chip8_default_character_set[] = {
   0xf0, 0x90, 0x90, 0x90, 0xf0, //0
@@ -36,6 +37,86 @@ void chip8_load(struct chip8* chip8, const char* buf, size_t size)
   memcpy(&chip8->memory.memory[CHIP8_PROGRAM_LOAD_ADDR], buf, size);
   chip8->registers.PC = CHIP8_PROGRAM_LOAD_ADDR;
 }
+
+static char chip8_wait_for_key_press(struct chip8* chip8)
+{
+  SDL_Event event;
+  while (SDL_WaitEvent(&event))
+  {
+    if (event.type != SDL_KEYDOWN)
+    {
+      continue;
+    }
+    char c = event.key.keysym.sym;
+    char chip8_key = chip8_keyboard_map(&chip8->keyboard, c);
+    if (chip8_key)
+    {
+      return chip8_key;
+    }
+
+  }
+
+  return -1;
+}
+static void chip8_exec_extended_f(struct chip8* chip8, unsigned short opcode)
+{
+  unsigned char x = (opcode >> 8) & 0x000f;
+  switch (opcode & 0x00ff)
+  {
+  case 0x07: // LD Vx, DT - Set Vx = delay timer value
+    chip8->registers.V[x] = chip8->registers.delay_timer;
+    break;
+  case 0x0a: // LD Vx, K - Wait for a key press, store its value in Vx
+  {
+    char pressed_key = chip8_wait_for_key_press(chip8);
+    chip8->registers.V[x] = pressed_key;
+  }
+  break;
+  case 0x15: // LD DT, Vx - Set delay timer = Vx
+    chip8->registers.delay_timer = chip8->registers.V[x];
+    break;
+  case 0x18: // LD ST, Vx - Set sound timer to Vx
+    chip8->registers.sound_timer = chip8->registers.V[x];
+    break;
+  case 0x1e: // ADD I, Vx - Set I = I + Vx
+    chip8->registers.I += chip8->registers.V[x];
+    break;
+  case 0x29: // LD F, Vx - Set I = to location of hexidecimal sprite whose cooresponding value = Vx
+    // Huh??
+    chip8->registers.I = chip8->registers.V[x] * CHIP8_DEFAULT_SPRITE_HEIGHT;
+    break;
+  case 0x33: // LD B, Vx - Take the decimal value of Vx store the hundreds in I, the tens in I + 1, and the ones in I + 2
+  {   unsigned char hundreds = chip8->registers.V[x] / 100;
+  unsigned char tens = chip8->registers.V[x] / 10 % 10;
+  unsigned char ones = chip8->registers.V[x] % 10;
+  chip8_memory_set(&chip8->memory, chip8->registers.I, hundreds);
+  chip8_memory_set(&chip8->memory, chip8->registers.I + 1, tens);
+  chip8_memory_set(&chip8->memory, chip8->registers.I + 2, ones);
+  }
+  break;
+  case 0x55: // LD [I], Vx - Store registers V0 through Vx into memory starting at addr in I
+  {
+    for (int i = 0; i <= x; ++i)
+    {
+      chip8_memory_set(&chip8->memory, chip8->registers.I + i, chip8->registers.V[i]);
+    }
+  }
+  break;
+  case 0x65: // LD Vx, [I] - Read values from memory starting at location I into registers V0 through Vx
+  {
+    for (int i; i <= x; ++i)
+    {
+      chip8->registers.V[i] = chip8_memory_get(&chip8->memory, chip8->registers.I + i);
+    }
+  }
+  break;
+  default:
+    break;
+  }
+
+
+}
+
 
 static void chip8_exec_extended_eight(struct chip8* chip8, unsigned short opcode)
 {
@@ -98,6 +179,7 @@ static void chip8_exec_extended_eight(struct chip8* chip8, unsigned short opcode
 static void chip8_exec_extended(struct chip8* chip8, unsigned short opcode)
 {
   unsigned short nnn = opcode & 0x0fff;
+  unsigned char n = opcode & 0x000f;
   unsigned char x = (opcode >> 8) & 0x000f;
   unsigned char y = (opcode >> 4) & 0x000f;
   unsigned char kk = opcode & 0x00ff;
@@ -151,6 +233,41 @@ static void chip8_exec_extended(struct chip8* chip8, unsigned short opcode)
     chip8->registers.PC = nnn + chip8->registers.V[0x00];
     break;
   case 0xc000: // Cxkk - RND Vx, byte: And kk with a random number between 0 and 255.  Store in Vx
+    srand(clock());
+    chip8->registers.V[x] = (rand() % 255) & kk;
+    break;
+  case 0xd000: // Dxyn - DRW Vx, Vy, nibble - Draw instruction, n bytes are read from addr stored in register I. Bytes are displayed on screen at Vx and Vy.  Sprites are XORed onto existing screen with VF = 1 when pixels are erased.  Otherwise it is set to 0.  Sprites can wrap around to other side of screen if positioned outside of screen coordinates.
+  {
+    const char* sprite = (const char*)&chip8->memory.memory[chip8->registers.I];
+    chip8->registers.V[0x0f] = chip8_screen_draw_sprite(&chip8->screen, chip8->registers.V[x], chip8->registers.V[y], sprite, n);
+  }
+  // Keyboard opcodes
+  case 0xe000:
+  {
+    switch (opcode & 0x00ff)
+    {
+    case 0x9e: // Ex9E - SKP Vx: Skip next instruction if key with value in Vx is pressed
+      if (chip8_key_is_down(&chip8->keyboard, chip8->registers.V[x]))
+      {
+        chip8->registers.PC += 2;
+      }
+      break;
+    case 0xa1: // ExA1 - SKNP Vx: Skip next instruction if key with value in in Vx is not pressed 
+      if (!chip8_key_is_down(&chip8->keyboard, chip8->registers.V[x]))
+      {
+        chip8->registers.PC += 2;
+      }
+
+      break;
+    default:
+      break;
+    }
+  }
+  break;
+
+  // Delay timers
+  case 0xf000:
+    chip8_exec_extended_f(chip8, opcode);
     break;
   default:
     break;
@@ -169,6 +286,5 @@ void chip8_exec(struct chip8* chip8, unsigned short opcode)
     break;
   default:
     chip8_exec_extended(chip8, opcode);
-
   }
 }
